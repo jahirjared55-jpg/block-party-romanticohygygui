@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#17152b">
+<title>Block Party</title>
+<style>
+:root{--bg:#17152b;--panel:#24213f;--ink:#fff6e9;--muted:#bcb6d9;--pink:#ff70a6;--cyan:#70e1ff;--yellow:#ffe66d}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+body{display:flex;justify-content:center;align-items:center;padding:12px;overscroll-behavior:none}
+button{font:inherit;color:inherit;border:0;cursor:pointer;touch-action:manipulation}
+.app{width:min(100%,680px);margin:auto}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px}
+.logo{font-weight:1000;letter-spacing:2px;font-size:clamp(18px,4vw,26px);text-shadow:3px 3px #6d4aff}
+.logo span{color:var(--pink)}
+.pill{font-size:11px;color:var(--muted);border:1px solid #514b79;border-radius:99px;padding:6px 9px}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 150px;gap:12px;align-items:start}
+.board-wrap{position:relative;background:#100f20;border:4px solid #514b79;border-radius:8px;padding:5px;box-shadow:0 7px 0 #0d0c18}
+canvas{display:block;width:100%;height:auto;image-rendering:pixelated;touch-action:none}
+.side{display:flex;flex-direction:column;gap:10px}
+.panel{background:var(--panel);border:2px solid #514b79;border-radius:8px;padding:10px}
+.label{font-size:10px;letter-spacing:1px;color:var(--muted);margin-bottom:6px}
+.value{font-size:22px;font-weight:900}
+#next{width:100%;max-width:120px;margin:auto}
+.message{font-size:11px;line-height:1.55;color:#f9d8e5;min-height:58px}
+#startBtn,.primary{background:var(--pink);color:#27152c;font-weight:900;padding:12px;border-radius:6px;box-shadow:0 4px 0 #a83f77}
+#startBtn:active,.primary:active{transform:translateY(2px);box-shadow:0 2px 0 #a83f77}
+.help{font-size:10px;line-height:1.5;color:var(--muted)}
+.controls{display:none;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}
+.ctrl{background:#302b51;border:2px solid #615a8c;border-radius:8px;min-height:54px;font-size:23px;font-weight:bold;box-shadow:0 4px 0 #0d0c18;user-select:none}
+.ctrl:active{transform:translateY(2px);box-shadow:0 2px 0 #0d0c18}
+.ctrl.rotate{color:var(--yellow)} .ctrl.move{color:var(--cyan)}
+.footer{text-align:center;color:#8982ac;font-size:10px;margin-top:14px}
+.overlay{position:absolute;inset:5px;display:flex;align-items:center;justify-content:center;background:#100f20eF;padding:16px;text-align:center;border-radius:3px}
+.overlay.hidden{display:none}
+.modal{width:100%;max-width:300px}
+.modal h2{font-size:clamp(18px,5vw,25px);line-height:1.35;margin:0 0 10px;color:var(--yellow)}
+.modal p{font-size:12px;line-height:1.7;color:var(--ink)}
+.answers{display:flex;flex-direction:column;gap:10px;margin-top:18px}
+.answer{background:var(--pink);color:#27152c;padding:13px;border-radius:6px;font-weight:1000;box-shadow:0 4px #a83f77}
+.answer.alt{background:var(--cyan);box-shadow:0 4px #3588a5}
+#toast{position:absolute;top:12%;left:8%;right:8%;z-index:3;pointer-events:none;text-align:center;background:#ffe66df2;color:#21172e;border:3px solid #fff6e9;padding:12px 8px;font-size:clamp(11px,3vw,14px);line-height:1.5;font-weight:900;box-shadow:4px 4px 0 #6d4aff;display:none}
+#toast.show{display:block;animation:pop .25s steps(3)}
+@keyframes pop{from{transform:scale(.8)}to{transform:scale(1)}}
+@media(max-width:520px){
+ body{padding:8px;align-items:flex-start}
+ .layout{grid-template-columns:minmax(0,1fr) 98px;gap:8px}
+ .panel{padding:7px}
+ .value{font-size:17px}
+ .label{font-size:9px}
+ .message{font-size:10px;min-height:78px}
+ .help{font-size:9px}
+ .controls{display:grid}
+ .top{margin-bottom:8px}
+}
+@media(min-width:521px){.board-wrap{max-width:390px}.layout{grid-template-columns:minmax(0,390px) 1fr}.side{max-width:180px}}
+</style>
+</head>
+<body>
+<main class="app">
+  <header class="top"><div class="logo">BLOCK<span> PARTY</span></div><div class="pill">PIXEL MODE · 01</div></header>
+  <section class="layout">
+    <div class="board-wrap">
+      <canvas id="game" width="300" height="600" aria-label="Tablero de bloques"></canvas>
+      <div id="toast"></div>
+      <div class="overlay" id="overlay">
+        <div class="modal" id="modalContent">
+          <h2>BLOCK PARTY</h2>
+          <p>Un clásico de bloques. Acomoda las piezas, completa líneas y consigue la mejor puntuación.</p>
+          <p>Sin prisas: la caída es lenta y puedes jugar a tu ritmo.</p>
+          <button id="startBtn">JUGAR ▶</button>
+        </div>
+      </div>
+    </div>
+    <aside class="side">
+      <div class="panel"><div class="label">PUNTUACIÓN</div><div class="value" id="score">0000</div></div>
+      <div class="panel"><div class="label">LÍNEAS</div><div class="value" id="lines">0 / 8</div></div>
+      <div class="panel"><div class="label">SIGUIENTE</div><canvas id="next" width="120" height="100"></canvas></div>
+      <div class="panel"><div class="label">ESTADO</div><div class="message" id="status">Todo listo. ¡A jugar!</div></div>
+      <div class="panel help">← → mover<br>↑ girar pieza<br>↓ no hace falta 😉<br><br>En móvil usa los controles.</div>
+    </aside>
+  </section>
+  <div class="controls" aria-label="Controles del juego">
+    <button class="ctrl move" data-action="left" aria-label="Mover izquierda">◀</button>
+    <button class="ctrl move" data-action="right" aria-label="Mover derecha">▶</button>
+    <button class="ctrl rotate" data-action="rotate" aria-label="Girar pieza">↻</button>
+    <button class="ctrl" data-action="pause" aria-label="Pausar">Ⅱ</button>
+  </div>
+  <div class="footer">HECHO DE PIXELES Y UN POQUITO DE SUERTE ✦</div>
+</main>
+<script>
+(() => {
+const canvas=document.getElementById('game'), ctx=canvas.getContext('2d');
+const nextCanvas=document.getElementById('next'), nctx=nextCanvas.getContext('2d');
+const overlay=document.getElementById('overlay'), modalContent=document.getElementById('modalContent');
+const scoreEl=document.getElementById('score'), linesEl=document.getElementById('lines'), statusEl=document.getElementById('status'), toast=document.getElementById('toast');
+const COLS=10, ROWS=20, CELL=30, TARGET=8;
+const COLORS={I:'#70e1ff',J:'#7c83ff',L:'#ffad66',O:'#ffe66d',S:'#8dff9b',T:'#d99bff',Z:'#ff70a6'};
+const SHAPES={
+ I:[[1,1,1,1]], J:[[1,0,0],[1,1,1]], L:[[0,0,1],[1,1,1]],
+ O:[[1,1],[1,1]], S:[[0,1,1],[1,1,0]], T:[[0,1,0],[1,1,1]], Z:[[1,1,0],[0,1,1]]
+};
+let board, piece, nextType, score, lines, running=false, paused=false, last=0, acc=0, dropMs=850, toastTimer, seen=new Set();
+function newBoard(){return Array.from({length:ROWS},()=>Array(COLS).fill(null))}
+function randomType(){return Object.keys(SHAPES)[Math.floor(Math.random()*7)]}
+function makePiece(type){return {type,shape:SHAPES[type].map(r=>r.slice()),x:Math.floor((COLS-SHAPES[type][0].length)/2),y:0}}
+function collide(p,dx=0,dy=0,shape=p.shape){
+ for(let y=0;y<shape.length;y++)for(let x=0;x<shape[y].length;x++)if(shape[y][x]){
+  const nx=p.x+x+dx,ny=p.y+y+dy;
+  if(nx<0||nx>=COLS||ny>=ROWS)return true;
+  if(ny>=0&&board[ny][nx])return true;
+ }return false;
+}
+function spawn(){piece=makePiece(nextType||randomType());nextType=randomType();drawNext();if(collide(piece,0,0)){endGame(false)}}
+function rotate(shape){return shape[0].map((_,i)=>shape.map(row=>row[i]).reverse())}
+function tryRotate(){const r=rotate(piece.shape);for(const kick of [0,-1,1,-2,2])if(!collide(piece,kick,0,r)){piece.x+=kick;piece.shape=r;draw();return}}
+function move(dx){if(running&&!paused&&!collide(piece,dx,0))piece.x+=dx;draw()}
+function lock(){
+ piece.shape.forEach((row,y)=>row.forEach((v,x)=>{if(v){const by=piece.y+y;if(by>=0&&by<ROWS)board[by][piece.x+x]=piece.type}}));
+ let cleared=0;
+ for(let y=ROWS-1;y>=0;y--)if(board[y].every(Boolean)){board.splice(y,1);board.unshift(Array(COLS).fill(null));cleared++;y++}
+ if(cleared){lines+=cleared;score += ([0,100,300,500,800][cleared]||800);scoreEl.textContent=String(score).padStart(4,'0');linesEl.textContent=`${lines} / ${TARGET}`;milestones();if(lines>=TARGET){endGame(true);return}}
+ spawn();draw();
+}
+const milestonesList=[
+ [1,'Buen comienzo. ✦'],
+ [2,'Hay cosas pequeñas que hacen bonito el día… como una buena partida.'],
+ [4,'Creo que mi parte favorita de esto es compartir el momento contigo. ♡'],
+ [6,'Entre tantas piezas, qué suerte coincidir contigo.'],
+ [7,'Tengo una última cosa que decirte…']
+];
+function milestones(){for(const [n,msg] of milestonesList){if(lines>=n&&!seen.has(n)){seen.add(n);showToast(msg);statusEl.textContent=msg;break}}}
+function showToast(msg){toast.textContent=msg;toast.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove('show'),2800)}
+function drawCell(c,x,y,size= CELL,context=ctx){context.fillStyle=c;context.fillRect(x*size+1,y*size+1,size-2,size-2);context.fillStyle='#ffffff35';context.fillRect(x*size+2,y*size+2,size-4,3);context.fillStyle='#00000022';context.fillRect(x*size+2,y*size+size-5,size-4,3)}
+function draw(){
+ ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#100f20';ctx.fillRect(0,0,300,600);
+ ctx.strokeStyle='#292640';ctx.lineWidth=1;
+ for(let x=0;x<=COLS;x++){ctx.beginPath();ctx.moveTo(x*CELL,0);ctx.lineTo(x*CELL,600);ctx.stroke()}
+ for(let y=0;y<=ROWS;y++){ctx.beginPath();ctx.moveTo(0,y*CELL);ctx.lineTo(300,y*CELL);ctx.stroke()}
+ board.forEach((row,y)=>row.forEach((v,x)=>{if(v)drawCell(COLORS[v],x,y)}));
+ if(piece)piece.shape.forEach((row,y)=>row.forEach((v,x)=>{if(v&&piece.y+y>=0)drawCell(COLORS[piece.type],piece.x+x,piece.y+y)}));
+}
+function drawNext(){nctx.clearRect(0,0,120,100);if(!nextType)return;const s=SHAPES[nextType],size=22,ox=(120-s[0].length*size)/2,oy=(100-s.length*size)/2;nctx.fillStyle='#24213f';nctx.fillRect(0,0,120,100);s.forEach((row,y)=>row.forEach((v,x)=>{if(v){nctx.fillStyle=COLORS[nextType];nctx.fillRect(ox+x*size+1,oy+y*size+1,size-2,size-2);nctx.fillStyle='#ffffff40';nctx.fillRect(ox+x*size+2,oy+y*size+2,size-4,3)}}))}
+function start(){board=newBoard();score=0;lines=0;seen.clear();scoreEl.textContent='0000';linesEl.textContent=`0 / ${TARGET}`;statusEl.textContent='Todo listo. ¡A jugar!';running=true;paused=false;overlay.classList.add('hidden');toast.classList.remove('show');nextType=randomType();spawn();last=performance.now();acc=0;requestAnimationFrame(loop)}
+function loop(t){if(!running)return;const dt=Math.min(t-last,100);last=t;if(!paused){acc+=dt;if(acc>=dropMs){acc=0;if(!collide(piece,0,1))piece.y++;else lock();draw()}}requestAnimationFrame(loop)}
+function endGame(win){
+ running=false;paused=false;overlay.classList.remove('hidden');
+ if(win){
+  modalContent.innerHTML=`<h2>¿QUIERES SER MI NOVIA?</h2><p>Me encantaría seguir creando recuerdos contigo. ♡</p><div class="answers"><button class="answer" data-answer="Sí">SÍ 💗</button><button class="answer alt" data-answer="Claro que sí">CLARO QUE SÍ ✨</button></div>`;
+  statusEl.textContent='¡Nivel corazón desbloqueado!';
+  modalContent.querySelectorAll('[data-answer]').forEach(b=>b.addEventListener('click',()=>{modalContent.innerHTML=`<h2>¡SABÍA QUE DIRÍAS QUE SÍ! ♡</h2><p>${b.dataset.answer === 'Sí' ? 'Un sí que acaba de hacerme el día.' : '¡Esa es la actitud! 💖'}<br><br>Este es solo el comienzo de algo bonito.</p><p>♡ ✦ ♡ ✦ ♡</p>`;}));
+ }else{
+  modalContent.innerHTML=`<h2>¡CASI!</h2><p>Las piezas se han amontonado, pero podemos intentarlo otra vez. Sin presión. ♡</p><button id="retry" class="primary">OTRA PARTIDA ↻</button>`;
+  document.getElementById('retry').addEventListener('click',()=>{modalContent.innerHTML=initialModal;start()});
+ }
+}
+const initialModal=`<h2>BLOCK PARTY</h2><p>Un clásico de bloques. Acomoda las piezas, completa líneas y consigue la mejor puntuación.</p><p>Sin prisas: la caída es lenta y puedes jugar a tu ritmo.</p><button id="startBtn" class="primary">JUGAR ▶</button>`;
+document.getElementById('startBtn').addEventListener('click',start);
+function togglePause(){if(!running)return;paused=!paused;if(paused){overlay.classList.remove('hidden');modalContent.innerHTML='<h2>PAUSA</h2><p>Tómate tu tiempo. ✦</p><button id="resume" class="primary">SEGUIR JUGANDO</button>';document.getElementById('resume').addEventListener('click',()=>{overlay.classList.add('hidden');paused=false;last=performance.now()})}else overlay.classList.add('hidden')}
+document.querySelectorAll('[data-action]').forEach(b=>b.addEventListener('click',()=>{const a=b.dataset.action;if(a==='left')move(-1);if(a==='right')move(1);if(a==='rotate'&&running&&!paused){tryRotate();draw()}if(a==='pause')togglePause()}));
+document.addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' '].includes(e.key))e.preventDefault();if(!running||paused)return;if(e.key==='ArrowLeft')move(-1);if(e.key==='ArrowRight')move(1);if(e.key==='ArrowUp'){tryRotate();draw()}});
+let touchX=null;
+canvas.addEventListener('touchstart',e=>{touchX=e.changedTouches[0].clientX},{passive:true});
+canvas.addEventListener('touchend',e=>{if(touchX===null)return;const dx=e.changedTouches[0].clientX-touchX;if(Math.abs(dx)>25)move(dx>0?1:-1);touchX=null},{passive:true});
+draw();drawNext();
+})();
+</script>
+</body>
+</html>
